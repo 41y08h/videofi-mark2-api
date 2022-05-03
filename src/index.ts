@@ -76,14 +76,48 @@ async function main() {
       ack({ success: true });
     });
 
-    socket.on("answer", (data) => {
-      const initiator = connectedClients.getBySocketId(socket.id);
-      const receiver = connectedClients.getById(data.remoteId);
+    socket.on("answer", (data, ack) => {
+      const receiver = connectedClients.getBySocketId(socket.id);
+      if (!receiver)
+        return ack({
+          error: {
+            code: "UNKNOWN",
+            message: "Something went wrong",
+          },
+        });
 
-      receiver?.socket.emit("answer", {
-        remoteId: initiator?.id,
-        data: data.data,
+      if (receiver.state.call !== CallState.incoming)
+        return ack({
+          error: {
+            code: "BAD_REQUEST",
+            message: "No incoming call",
+          },
+        });
+
+      const initiator = connectedClients.getById(receiver.state.remoteId);
+      if (!initiator)
+        return ack({
+          error: {
+            code: "UNKNOWN",
+            message: "Something went wrong",
+          },
+        });
+
+      initiator.state = {
+        call: CallState.connected,
+        remoteId: receiver.id,
+      };
+
+      receiver.state = {
+        call: CallState.connected,
+        remoteId: initiator.id,
+      };
+
+      initiator.socket.emit("answer", {
+        signal: data.signal,
       });
+
+      ack({ success: true });
     });
 
     socket.on("ice-candidate", (data) => {
