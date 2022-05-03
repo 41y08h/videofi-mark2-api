@@ -121,12 +121,15 @@ async function main() {
     });
 
     socket.on("ice-candidate", (data) => {
-      const initiator = connectedClients.getBySocketId(socket.id);
-      const receiver = connectedClients.getById(data.remoteId);
+      const transmitter = connectedClients.getBySocketId(socket.id);
+
+      if (!transmitter) return;
+      if (transmitter.state.call == CallState.idle) return;
+
+      const receiver = connectedClients.getById(transmitter.state.remoteId);
 
       receiver?.socket.emit("ice-candidate", {
-        remoteId: initiator?.id,
-        data: data.data,
+        candidate: data.candidate,
       });
     });
 
