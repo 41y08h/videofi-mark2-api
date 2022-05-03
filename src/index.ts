@@ -133,6 +133,27 @@ async function main() {
       });
     });
 
+    socket.on("reject-offer", () => {
+      const receiver = connectedClients.getBySocketId(socket.id);
+
+      if (!receiver) return;
+      if (receiver.state.call !== CallState.incoming) return;
+
+      const initiator = connectedClients.getById(receiver.state.remoteId);
+      if (!initiator) return;
+
+      receiver.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+      initiator.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+
+      initiator.socket.emit("offer-rejected");
+    });
+
     socket.on("disconnect-call", (data) => {
       const initiator = connectedClients.getBySocketId(socket.id);
       const receiver = connectedClients.getById(data.remoteId);
