@@ -154,6 +154,25 @@ async function main() {
       initiator.socket.emit("offer-rejected");
     });
 
+    socket.on("end-offer", () => {
+      const initiator = connectedClients.getBySocketId(socket.id);
+      if (!initiator) return;
+      if (initiator.state.call !== CallState.outgoing) return;
+
+      const receiver = connectedClients.getById(initiator.state.remoteId);
+      if (!receiver) return;
+      receiver.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+      initiator.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+
+      receiver.socket.emit("offer-ended");
+    });
+
     socket.on("disconnect-call", (data) => {
       const initiator = connectedClients.getBySocketId(socket.id);
       const receiver = connectedClients.getById(data.remoteId);
