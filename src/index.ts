@@ -51,7 +51,7 @@ async function main() {
           },
         });
 
-      if (receiver.callState !== CallState.idle)
+      if (receiver.state.call !== CallState.idle)
         return ack({
           error: {
             code: "USER_BUSY",
@@ -59,40 +59,21 @@ async function main() {
           },
         });
 
-      initiator.callState = CallState.outgoing;
-      initiator.inCallWith = receiver;
-
-      receiver.callState = CallState.incoming;
-      receiver.inCallWith = initiator;
+      initiator.state = {
+        call: CallState.outgoing,
+        remoteId: receiver.id,
+      };
+      receiver.state = {
+        call: CallState.incoming,
+        remoteId: initiator.id,
+      };
 
       receiver.socket.emit("offer", {
-        remoteId: initiator?.id,
-        data: data.data,
+        remoteId: initiator.id,
+        signal: data.signal,
       });
 
       ack({ success: true });
-
-      const offerTimeout = setTimeout(() => {
-        // Notiy the initiator that the call was timed out
-        initiator.socket.emit("offer/timeout");
-
-        // Unsubscribe the handlers
-        receiver.socket.off("end-offer", clearOfferTimeout);
-        receiver.socket.off("answer", clearOfferTimeout);
-      }, 20 * 1000);
-
-      const clearOfferTimeout = () => {
-        clearTimeout(offerTimeout);
-      };
-
-      initiator.socket.on("end-offer", clearOfferTimeout);
-      receiver.socket.once("answer", clearOfferTimeout);
-    });
-
-    socket.on("end-offer", () => {
-      const initiator = connectedClients.getBySocketId(socket.id);
-      if (initiator?.callState !== CallState.outgoing) return;
-      initiator?.inCallWith?.socket.emit("offer-ended");
     });
 
     socket.on("answer", (data) => {

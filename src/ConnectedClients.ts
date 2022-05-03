@@ -7,17 +7,34 @@ export enum CallState {
   connected,
 }
 
-export class Client {
+interface StateIdle {
+  call: CallState.idle;
+  remoteId: undefined;
+}
+
+interface StateOutgoingIncomingConnected {
+  call: CallState.outgoing | CallState.incoming | CallState.connected;
+  remoteId: number;
+}
+
+interface ClientBase {
   id: number;
   socket: Socket;
-  callState: CallState;
-  inCallWith: Client | null;
+  state: StateIdle | StateOutgoingIncomingConnected;
+}
+
+export class Client implements ClientBase {
+  id: number;
+  socket: Socket;
+  state: StateIdle | StateOutgoingIncomingConnected;
 
   constructor(id: number, socket: Socket) {
     this.id = id;
     this.socket = socket;
-    this.callState = CallState.idle;
-    this.inCallWith = null;
+    this.state = {
+      call: CallState.idle,
+      remoteId: undefined,
+    };
   }
 }
 
