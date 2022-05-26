@@ -175,11 +175,22 @@ async function main() {
 
     socket.on("disconnect-call", (data) => {
       const initiator = connectedClients.getBySocketId(socket.id);
-      const receiver = connectedClients.getById(data.remoteId);
+      if (!initiator) return;
 
-      receiver?.socket.emit("disconnect-call", {
-        remoteId: initiator?.id,
-      });
+      if (initiator.state.call !== CallState.connected) return;
+      const receiver = connectedClients.getById(initiator.state.remoteId);
+      if (!receiver) return;
+
+      receiver.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+      initiator.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+
+      receiver.socket.emit("call-disconnected");
     });
   });
 
