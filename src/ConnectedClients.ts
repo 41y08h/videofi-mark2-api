@@ -12,21 +12,29 @@ interface StateIdle {
   remoteId: undefined;
 }
 
-interface StateOutgoingIncomingConnected {
-  call: CallState.outgoing | CallState.incoming | CallState.connected;
+interface StateOutgoingIncoming {
+  call: CallState.outgoing | CallState.incoming;
+  remoteId: number;
+  timeout: NodeJS.Timeout;
+}
+
+interface StateConnected {
+  call: CallState.connected;
   remoteId: number;
 }
+
+type State = StateIdle | StateOutgoingIncoming | StateConnected;
 
 interface ClientBase {
   id: number;
   socket: Socket;
-  state: StateIdle | StateOutgoingIncomingConnected;
+  state: State;
 }
 
 export class Client implements ClientBase {
   id: number;
   socket: Socket;
-  state: StateIdle | StateOutgoingIncomingConnected;
+  state: State;
 
   constructor(id: number, socket: Socket) {
     this.id = id;

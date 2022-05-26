@@ -43,6 +43,8 @@ async function main() {
           },
         });
 
+      if (initiator.state.call != CallState.idle) return;
+
       if (initiator.id === receiver.id)
         return ack({
           error: {
@@ -59,13 +61,31 @@ async function main() {
           },
         });
 
+      const timeout = setTimeout(() => {
+        receiver.state = {
+          call: CallState.idle,
+          remoteId: undefined,
+        };
+        initiator.state = {
+          call: CallState.idle,
+          remoteId: undefined,
+        };
+
+        console.log("timeout");
+
+        initiator.socket.emit("outgoing-time-out");
+        receiver.socket.emit("incoming-time-out");
+      }, 10 * 1000);
+
       initiator.state = {
         call: CallState.outgoing,
         remoteId: receiver.id,
+        timeout,
       };
       receiver.state = {
         call: CallState.incoming,
         remoteId: initiator.id,
+        timeout,
       };
 
       receiver.socket.emit("offer", {
@@ -95,13 +115,15 @@ async function main() {
         });
 
       const initiator = connectedClients.getById(receiver.state.remoteId);
-      if (!initiator)
+      if (!initiator || initiator.state.call !== CallState.outgoing)
         return ack({
           error: {
             code: "UNKNOWN",
             message: "Something went wrong",
           },
         });
+
+      clearTimeout(initiator.state.timeout);
 
       initiator.state = {
         call: CallState.connected,
@@ -142,6 +164,8 @@ async function main() {
       const initiator = connectedClients.getById(receiver.state.remoteId);
       if (!initiator) return;
 
+      clearTimeout(receiver.state.timeout);
+
       receiver.state = {
         call: CallState.idle,
         remoteId: undefined,
@@ -161,6 +185,9 @@ async function main() {
 
       const receiver = connectedClients.getById(initiator.state.remoteId);
       if (!receiver) return;
+
+      clearTimeout(initiator.state.timeout);
+
       receiver.state = {
         call: CallState.idle,
         remoteId: undefined,
