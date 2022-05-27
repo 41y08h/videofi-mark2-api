@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import ConnectedClients, { CallState } from "./ConnectedClients";
 
 const connectedClients = new ConnectedClients();
+const CALL_TIMEOUT_MS = 60 * 1000;
 
 async function main() {
   const io: Server = require("socket.io")({
@@ -75,7 +76,7 @@ async function main() {
 
         initiator.socket.emit("outgoing-time-out");
         receiver.socket.emit("incoming-time-out");
-      }, 10 * 1000);
+      }, CALL_TIMEOUT_MS);
 
       initiator.state = {
         call: CallState.outgoing,
