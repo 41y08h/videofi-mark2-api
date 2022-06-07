@@ -220,6 +220,27 @@ async function main() {
 
       receiver.socket.emit("call-disconnected");
     });
+
+    socket.on("disconnect", () => {
+      const user = connectedClients.getBySocketId(socket.id);
+      if (!user) return;
+
+      if (user.state.call == CallState.idle) return;
+      const peer = connectedClients.getById(user.state.remoteId);
+      if (!peer) return;
+
+      peer.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+      user.state = {
+        call: CallState.idle,
+        remoteId: undefined,
+      };
+
+      peer.socket.emit("opponent-disconnected");
+      connectedClients.remove(socket.id);
+    });
   });
 
   io.listen(5000);
