@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Server } from "socket.io";
 import ConnectedClients, { CallState } from "./ConnectedClients";
+import createDebug from "debug";
 
 const connectedClients = new ConnectedClients();
 const CALL_TIMEOUT_MS = 60 * 1000;
@@ -11,6 +12,7 @@ async function main() {
     origins: "*",
     allowEIO3: true,
   });
+  const debug = createDebug("app:ws");
 
   io.use(async (socket, next) => {
     const existingClient = connectedClients.getBySocketId(socket.id);
@@ -21,20 +23,25 @@ async function main() {
   });
 
   io.on("connection", (socket) => {
-    console.log("New connection");
+    debug("new connection");
 
     socket.on("get-id", () => {
       const client = connectedClients.getBySocketId(socket.id);
-      if (client) socket.emit("get-id/callback", client.id);
+      if (client) {
+        socket.emit("get-id/callback", client.id);
+        debug(`sending id: ${client.id}`);
+      }
     });
 
     socket.onAny((event) => {
-      console.log(`received event: ${event}`);
+      const debug = createDebug("app:ws:events");
+      debug(`received event: ${event}`);
     });
 
     socket.on("offer", (data, ack) => {
       const initiator = connectedClients.getBySocketId(socket.id);
       const receiver = connectedClients.getById(data.remoteId);
+      const debug = createDebug("app:ws:signaling");
 
       if (!initiator || !receiver)
         return ack({
@@ -63,6 +70,8 @@ async function main() {
         });
 
       const timeout = setTimeout(() => {
+        debug(`timeout: caller-${initiator.id}, callee-${receiver.id}`);
+
         receiver.state = {
           call: CallState.idle,
           remoteId: undefined,
@@ -71,8 +80,6 @@ async function main() {
           call: CallState.idle,
           remoteId: undefined,
         };
-
-        console.log("timeout");
 
         initiator.socket.emit("outgoing-time-out");
         receiver.socket.emit("incoming-time-out");
@@ -95,9 +102,11 @@ async function main() {
       });
 
       ack({ success: true });
+      debug("offer success");
     });
 
     socket.on("answer", (data, ack) => {
+      const debug = createDebug("app:ws:signaling");
       const receiver = connectedClients.getBySocketId(socket.id);
       if (!receiver)
         return ack({
@@ -141,6 +150,7 @@ async function main() {
       });
 
       ack({ success: true });
+      debug("answer success");
     });
 
     socket.on("ice-candidate", (data) => {
@@ -157,6 +167,7 @@ async function main() {
     });
 
     socket.on("reject-offer", () => {
+      const debug = createDebug("app:ws:signaling");
       const receiver = connectedClients.getBySocketId(socket.id);
 
       if (!receiver) return;
@@ -177,9 +188,11 @@ async function main() {
       };
 
       initiator.socket.emit("offer-rejected");
+      debug(`offer rejected: caller-${initiator.id}, callee-${receiver.id}`);
     });
 
     socket.on("end-offer", () => {
+      const debug = createDebug("app:ws:signaling");
       const initiator = connectedClients.getBySocketId(socket.id);
       if (!initiator) return;
       if (initiator.state.call !== CallState.outgoing) return;
@@ -199,9 +212,11 @@ async function main() {
       };
 
       receiver.socket.emit("offer-ended");
+      debug(`offer ended: caller-${initiator.id}, callee-${receiver.id}`);
     });
 
     socket.on("disconnect-call", (data) => {
+      const debug = createDebug("app:ws:signaling");
       const initiator = connectedClients.getBySocketId(socket.id);
       if (!initiator) return;
 
@@ -219,9 +234,11 @@ async function main() {
       };
 
       receiver.socket.emit("call-disconnected");
+      debug(`disconnected: caller-${initiator.id}, callee-${receiver.id}`);
     });
 
     socket.on("disconnect", () => {
+      const debug = createDebug("app:ws");
       const user = connectedClients.getBySocketId(socket.id);
       if (!user) return;
 
@@ -239,6 +256,7 @@ async function main() {
       };
 
       peer.socket.emit("opponent-disconnected");
+      debug(`client disconnected: ${user.id}`);
       connectedClients.remove(socket.id);
     });
   });
